@@ -56232,7 +56232,7 @@ A.Fc.prototype={
 O(a){var s,r=null
 if(!this.e)s=new A.z5(new A.a0g(this),r,r,r,A.ahP(r,r,r,r,r,r,r,r,r,r,r,r,B.yv,r,r,r,r,r,r,r),r,r,!1,r,!0,r,B.Lg,r)
 else{$.afI()
-s=new A.tZ(new A.a0h(this),$.aes().F2(B.ad),r,t.Fx)}return new A.tr(new A.p8(B.Li,new A.GJ(r,r,1/0,56),r),A.Le(s,r,r),r)},
+s=new A.tZ(new A.a0h(this),$.aes().F2(B.ad),r,t.Fx)}return new A.tr(new A.p8(B.Lj,new A.GJ(r,r,1/0,56),r),A.Le(s,r,r),r)},
 zx(a,b){var s=null,r=A.KO(10)
 return A.a8A(A.akc(A.d([A.a6m(a,s),A.a6m(B.c.T(b,2),B.uG)],t.nA),B.bL,B.oU,B.hv),new A.eS(B.xq,s,s,r,s,s,B.bc),s,B.yq,B.yr,200)}}
 A.a0g.prototype={
@@ -56252,7 +56252,7 @@ if(p!=null){s=p.a
 if(Math.abs(s)>12&&Math.abs(s-this.a.r)>2)++this.a.f
 r=this.a
 r.r=s
-return A.ah4(A.d([r.zx("X Axis",s),r.zx("Y Axis",p.b),B.Go,B.Lh,A.a6m(""+r.f,B.KC),B.Gn,new A.CF(new A.a0e(r),q,q,q,q,q,q,!1,q,!0,q,B.Lj,q)],t.nA),B.oT)}return B.wS},
+return A.ah4(A.d([r.zx("X Axis",s),r.zx("Y Axis",p.b),B.Go,B.Lh,A.a6m(""+r.f,B.KC),B.Gn,new A.CF(new A.a0e(r),q,q,q,q,q,q,!1,q,!0,q,B.Li,q)],t.nA),B.oT)}return B.wS},
 $S:367}
 A.a0e.prototype={
 $0(){var s=this.a
@@ -61316,8 +61316,8 @@ B.KL=new A.j(!0,null,null,null,null,null,20,null,null,null,null,null,null,null,n
 B.Lg=new A.i7("Enable Sensors",null,B.KL,null,null)
 B.HE=new A.j(!0,null,null,null,null,null,null,null,null,2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.Lh=new A.i7("SHAKE COUNT",null,B.HE,null,null)
-B.Li=new A.i7("Motion Counter",null,null,null,null)
-B.Lj=new A.i7("Reset Counter",null,null,null,null)
+B.Li=new A.i7("Reset Counter",null,null,null,null)
+B.Lj=new A.i7("Motion Counter v0.01",null,null,null,null)
 B.NB=new A.Y8(0,"system")
 B.Dk=new A.A(0.056,0.024)
 B.Ds=new A.A(0.108,0.3085)
