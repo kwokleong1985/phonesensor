@@ -3,135 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Global Flight Navigator</title>
+    <title>Flight Navigator</title>
     <style>
-        :root { --p-blue: #38bdf8; --p-bg: #0f172a; --p-card: #1e293b; }
-        body { background: var(--p-bg); color: white; font-family: -apple-system, sans-serif; padding: 15px; margin: 0; }
-        .panel { background: var(--p-card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #334155; }
+        :root { --accent: #38bdf8; --bg: #0f172a; --card: #1e293b; }
+        body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; padding: 15px; margin: 0; }
+        .panel { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #334155; }
         .label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-        input, select { background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; width: 100%; border-radius: 6px; box-sizing: border-box; margin: 5px 0 10px 0; }
-        button { background: var(--p-blue); color: #0f172a; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        input { background: #0f172a; color: white; border: 1px solid #475569; padding: 12px; width: 100%; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        /* Search Results Styling */
+        #results { margin-top: 10px; max-height: 200px; overflow-y: auto; }
+        .result-item { padding: 12px; border-bottom: 1px solid #334155; cursor: pointer; display: flex; justify-content: space-between; }
+        .result-item:active { background: #334155; }
+        .city { font-size: 0.9rem; color: #94a3b8; }
+
+        .big-val { font-size: 3rem; font-weight: 800; color: var(--accent); display: block; margin: 10px 0; }
+        .unit { font-size: 1rem; color: #94a3b8; margin-left: 5px; }
         #tracker { display: none; text-align: center; }
-        .big-val { font-size: 2.5rem; font-weight: 800; color: var(--p-blue); display: block; }
+        button { background: var(--accent); color: #0f172a; border: none; padding: 18px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 1rem; }
     </style>
 </head>
 <body>
 
     <div id="setup-screen">
-        <h2>Flight Setup</h2>
-        
         <div class="panel">
-            <span class="label">Option 1: Quick Select (Offline Ready)</span>
-            <select id="quickSelect" onchange="applyQuickSelect()">
-                <option value="">-- Choose Hub --</option>
-                <option value="1.3501,103.9940,SIN">Singapore Changi (SIN)</option>
-                <option value="22.3089,113.9145,HKG">Hong Kong (HKG)</option>
-                <option value="25.2532,55.3657,DXB">Dubai (DXB)</option>
-                <option value="51.4700,-0.4543,LHR">London Heathrow (LHR)</option>
-                <option value="40.6413,-73.7781,JFK">New York JFK (JFK)</option>
-                <option value="35.7767,140.3864,NRT">Tokyo Narita (NRT)</option>
-            </select>
+            <span class="label">Destination Search (Offline Database)</span>
+            <input type="text" id="searchInput" placeholder="Type Airport or City (e.g. SIN)" oninput="doSearch()">
+            <div id="results"></div>
         </div>
 
-        <div class="panel">
-            <span class="label">Option 2: Global Search (Needs Internet)</span>
-            <div style="display:flex; gap:5px;">
-                <input type="text" id="searchInput" placeholder="Search Airport Code (e.g. LAX)">
-                <button onclick="searchAirport()" style="width:80px; margin-top:5px; padding:10px;">Find</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <span class="label">Option 3: Manual Coordinates</span>
-            <input type="text" id="destName" placeholder="Airport Name">
-            <div class="grid">
-                <input type="number" id="destLat" step="any" placeholder="Latitude">
-                <input type="number" id="destLon" step="any" placeholder="Longitude">
-            </div>
-            <button id="activateBtn" style="background:#22c55e">START TRACKING</button>
+        <div class="panel" id="manual-panel">
+            <span class="label">Selected Destination</span>
+            <div id="selectedInfo" style="margin: 10px 0; font-weight: bold; color: var(--accent);">None Selected</div>
+            <input type="hidden" id="destLat">
+            <input type="hidden" id="destLon">
+            <button id="activateBtn" style="display:none">ACTIVATE TRACKER</button>
         </div>
     </div>
 
     <div id="tracker">
         <div class="panel">
-            <span class="label">Distance to <span id="targetDisplay">Destination</span></span>
-            <span id="distVal" class="big-val">---</span>
-            <span class="label">Nautical Miles</span>
+            <span class="label">Distance to <span id="targetName">Target</span></span>
+            <span id="distVal" class="big-val">---<span class="unit">nm</span></span>
         </div>
-        <div class="grid">
-            <div class="panel"><span class="label">GND Speed</span><span id="spdVal" style="font-size:1.5rem; font-weight:bold;">0</span><span class="label"> kts</span></div>
-            <div class="panel"><span class="label">Heading</span><span id="hdgVal" style="font-size:1.5rem; font-weight:bold;">0°</span><span class="label"> Magnetic</span></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="panel"><span class="label">Ground Speed</span><br><span id="spdVal" style="font-size:1.5rem">0</span><span class="unit">kts</span></div>
+            <div class="panel"><span class="label">Heading</span><br><span id="hdgVal" style="font-size:1.5rem">0°</span></div>
         </div>
         <div class="panel">
-            <span class="label">Altitude</span>
-            <span id="altVal" style="font-size:1.5rem; font-weight:bold;">0</span><span class="label"> feet MSL</span>
+            <span class="label">Altitude</span><br>
+            <span id="altVal" style="font-size:1.5rem">0</span><span class="unit">ft MSL</span>
         </div>
-        <button onclick="location.reload()" style="background:#475569; color:white">Change Flight</button>
+        <button onclick="location.reload()" style="background:#475569; color:white">RESET</button>
     </div>
 
     <script>
-        // REDUNDANCY 1: Apply from Select
-        function applyQuickSelect() {
-            const val = document.getElementById('quickSelect').value;
-            if (!val) return;
-            const [lat, lon, name] = val.split(',');
-            document.getElementById('destLat').value = lat;
-            document.getElementById('destLon').value = lon;
-            document.getElementById('destName').value = name;
+        // REDUNDANCY: The 20-Airport Database
+        const localAirports = [
+            {code: "SIN", name: "Changi", city: "Singapore", lat: 1.3501, lon: 103.9940},
+            {code: "LHR", name: "Heathrow", city: "London", lat: 51.4700, lon: -0.4543},
+            {code: "JFK", name: "John F Kennedy", city: "New York", lat: 40.6413, lon: -73.7781},
+            {code: "DXB", name: "Dubai Intl", city: "Dubai", lat: 25.2532, lon: 55.3657},
+            {code: "HKG", name: "Hong Kong Intl", city: "Hong Kong", lat: 22.3089, lon: 113.9145},
+            {code: "HND", name: "Haneda", city: "Tokyo", lat: 35.5494, lon: 139.7798},
+            {code: "CDG", name: "Charles de Gaulle", city: "Paris", lat: 49.0097, lon: 2.5479},
+            {code: "LAX", name: "Los Angeles Intl", city: "Los Angeles", lat: 33.9416, lon: -118.4085},
+            {code: "SYD", name: "Kingsford Smith", city: "Sydney", lat: -33.9399, lon: 151.1753},
+            {code: "FRA", name: "Frankfurt", city: "Frankfurt", lat: 50.0379, lon: 8.5622},
+            {code: "SFO", name: "San Francisco Intl", city: "San Francisco", lat: 37.6213, lon: -122.3790},
+            {code: "ICN", name: "Incheon Intl", city: "Seoul", lat: 37.4602, lon: 126.4407},
+            {code: "AMS", name: "Schiphol", city: "Amsterdam", lat: 52.3105, lon: 4.7683},
+            {code: "PEK", name: "Beijing Capital", city: "Beijing", lat: 40.0799, lon: 116.6031},
+            {code: "MUC", name: "Munich", city: "Munich", lat: 48.3537, lon: 11.7861},
+            {code: "YYZ", name: "Pearson Intl", city: "Toronto", lat: 43.6777, lon: -79.6248},
+            {code: "BKK", name: "Suvarnabhumi", city: "Bangkok", lat: 13.6900, lon: 100.7501},
+            {code: "TPE", name: "Taoyuan Intl", city: "Taipei", lat: 25.0797, lon: 121.2342},
+            {code: "MEL", name: "Melbourne", city: "Melbourne", lat: -37.6690, lon: 144.8410},
+            {code: "ZRH", name: "Zurich", city: "Zurich", lat: 47.4582, lon: 8.5555},
+            {code: "SGN", name: "Tan Son Nhat Intl", city: "Ho Chi Minh City", lat: 10.8185, lon: 106.6518}
+        ];
+
+        function doSearch() {
+            const term = document.getElementById('searchInput').value.toUpperCase();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            
+            if (term.length < 2) return;
+
+            const filtered = localAirports.filter(a => 
+                a.code.includes(term) || a.name.toUpperCase().includes(term) || a.city.toUpperCase().includes(term)
+            );
+
+            filtered.forEach(a => {
+                const div = document.createElement('div');
+                div.className = 'result-item';
+                div.innerHTML = `<span><strong>${a.code}</strong> - ${a.name}</span><span class="city">${a.city}</span>`;
+                div.onclick = () => selectAirport(a);
+                resultsDiv.appendChild(div);
+            });
         }
 
-        // REDUNDANCY 2: Search API
-        async function searchAirport() {
-            const query = document.getElementById('searchInput').value;
-            if (!query) return;
-            try {
-                const res = await fetch(`https://autocomplete.travelpayouts.com/places2?term=${query}&locale=en&types[]=airport`);
-                const data = await res.json();
-                if (data.length > 0) {
-                    document.getElementById('destLat').value = data[0].coordinates.lat;
-                    document.getElementById('destLon').value = data[0].coordinates.lon;
-                    document.getElementById('destName').value = data[0].name;
-                } else { alert("Not found."); }
-            } catch (e) { alert("Search requires internet connection."); }
+        function selectAirport(a) {
+            document.getElementById('destLat').value = a.lat;
+            document.getElementById('destLon').value = a.lon;
+            document.getElementById('targetName').innerText = a.code;
+            document.getElementById('selectedInfo').innerText = `${a.name} (${a.city})`;
+            document.getElementById('activateBtn').style.display = 'block';
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('searchInput').value = '';
         }
 
-        // NAVIGATION LOGIC
         document.getElementById('activateBtn').addEventListener('click', async () => {
-            const lat = parseFloat(document.getElementById('destLat').value);
-            const lon = parseFloat(document.getElementById('destLon').value);
-            if (isNaN(lat) || isNaN(lon)) { alert("Need coordinates!"); return; }
-
-            // Request Permissions
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 await DeviceOrientationEvent.requestPermission();
             }
-
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('tracker').style.display = 'block';
-            document.getElementById('targetDisplay').innerText = document.getElementById('destName').value || "Dest";
-
-            startNavigation(lat, lon);
+            
+            const lat = parseFloat(document.getElementById('destLat').value);
+            const lon = parseFloat(document.getElementById('destLon').value);
+            startTracking(lat, lon);
         });
 
-        function startNavigation(dLat, dLon) {
-            // Compass
+        function startTracking(dLat, dLon) {
             window.addEventListener('deviceorientation', (e) => {
                 document.getElementById('hdgVal').innerText = Math.round(e.webkitCompassHeading || e.alpha || 0) + "°";
             });
 
-            // GPS
             navigator.geolocation.watchPosition((pos) => {
                 const p = pos.coords;
-                const dist = calculateHaversine(p.latitude, p.longitude, dLat, dLon);
+                const dist = calculateDistance(p.latitude, p.longitude, dLat, dLon);
                 
-                document.getElementById('distVal').innerText = dist.toFixed(1);
+                document.getElementById('distVal').innerHTML = `${dist.toFixed(1)}<span class="unit">nm</span>`;
                 document.getElementById('spdVal').innerText = Math.round((p.speed || 0) * 1.94384);
                 document.getElementById('altVal').innerText = Math.round((p.altitude || 0) * 3.28084).toLocaleString();
             }, null, { enableHighAccuracy: true });
         }
 
-        function calculateHaversine(lat1, lon1, lat2, lon2) {
+        function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 3440.06; // Nautical Miles
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
