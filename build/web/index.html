@@ -39,26 +39,32 @@
 
   <script src="flutter_bootstrap.js" async></script>
   
-  <script>
-    window.askIOSPermission = function() {
-      if (typeof DeviceOrientationEvent !== 'undefined' && 
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        return DeviceOrientationEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-              // DIRECT JS LISTENER
-              window.addEventListener('devicemotion', (event) => {
-                const x = event.accelerationIncludingGravity.x;
-                document.getElementById('js-x').innerText = x.toFixed(2);
+<script>
+  window.askIOSPermission = function() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      return DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            window.addEventListener('devicemotion', (event) => {
+              // We grab the values
+              const x = event.accelerationIncludingGravity.x || 0;
+              const y = event.accelerationIncludingGravity.y || 0;
+              
+              // We "Dispatch" a custom event that Flutter can listen to
+              const motionEvent = new CustomEvent('flutter-devicemotion', {
+                detail: { x: x, y: y }
               });
-              return 'granted';
-            }
-            return permissionState;
-          });
-      } else {
-        return Promise.resolve('granted'); 
-      }
-    };
-  </script>
+              window.dispatchEvent(motionEvent);
+            });
+            return 'granted';
+          }
+          return permissionState;
+        });
+    } else {
+      return Promise.resolve('granted'); 
+    }
+  };
+</script>
 </body>
 </html>
