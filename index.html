@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ShakeCounter Pro</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; }
+        body { 
+            background-color: var(--bg); color: white; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; margin: 0; overflow: hidden;
+        }
+        .container { text-align: center; width: 100%; }
+        #count { font-size: 12rem; font-weight: 800; margin: 20px 0; color: var(--accent); }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 30px; }
+        .data-item { background: var(--card); padding: 10px 20px; border-radius: 12px; min-width: 80px; }
+        .label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; }
+        .value { font-family: monospace; font-size: 1.2rem; display: block; }
+        button {
+            background: var(--accent); 
+            color: var(--bg); 
+            border: none;
+            padding: 20px 40px; 
+            border-radius: 50px; 
+            font-size: 1.2rem; 
+            font-weight: bold;
+            box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.4);
+            transition: transform 0.1s ease; /* Makes the click feel smooth */
+            cursor: pointer;
+        }
+
+        /* This handles the "press" effect separately */
+        button:active {
+            transform: scale(0.95);
+        }
+        .reset-btn { background: transparent; color: #64748b; margin-top: 20px; border: 1px solid #334155; padding: 10px 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="count">0</div>
+        
+        <div class="data-grid">
+            <div class="data-item">
+                <span class="label">X-Axis</span>
+                <span id="x-val" class="value">0.00</span>
+            </div>
+            <div class="data-item">
+                <span class="label">Y-Axis</span>
+                <span id="y-val" class="value">0.00</span>
+            </div>
+        </div>
+
+        <button id="permBtn">ACTIVATE SENSORS</button>
+        <br>
+        <button id="resetBtn" class="reset-btn">RESET COUNTER</button>
+    </div>
+
+    <script>
+        let counter = 0;
+        let lastX = 0;
+        let isThrottled = false;
+
+        const permBtn = document.getElementById('permBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const countDisplay = document.getElementById('count');
+        const xDisplay = document.getElementById('x-val');
+        const yDisplay = document.getElementById('y-val');
+
+        permBtn.addEventListener('click', async () => {
+            // iOS Specific Permission Request
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const response = await DeviceMotionEvent.requestPermission();
+                    if (response === 'granted') {
+                        initSensors();
+                    } else {
+                        alert("Permission denied. Go to Settings > Safari to reset.");
+                    }
+                } catch (e) {
+                    alert("System error: " + e);
+                }
+            } else {
+                // Non-iOS or older versions
+                initSensors();
+            }
+        });
+
+        function initSensors() {
+            permBtn.innerText = "SENSORS ACTIVE";
+            permBtn.style.backgroundColor = "#22c55e"; // Green
+            
+            window.addEventListener('devicemotion', (event) => {
+                const x = event.accelerationIncludingGravity.x || 0;
+                const y = event.accelerationIncludingGravity.y || 0;
+
+                xDisplay.innerText = x.toFixed(2);
+                yDisplay.innerText = y.toFixed(2);
+
+                // SHAKE LOGIC: 
+                // We look for a sharp change in direction (delta) and a minimum force
+                const deltaX = Math.abs(x - lastX);
+                
+                if (deltaX > 15 && !isThrottled) {
+                    counter++;
+                    countDisplay.innerText = counter;
+                    
+                    // Throttle for 300ms so one shake doesn't count as 10
+                    isThrottled = true;
+                    setTimeout(() => isThrottled = false, 300);
+                }
+
+                lastX = x;
+            });
+        }
+
+        resetBtn.addEventListener('click', () => {
+            counter = 0;
+            countDisplay.innerText = counter;
+        });
+    </script>
+</body>
+</html>
