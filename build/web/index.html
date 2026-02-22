@@ -42,18 +42,16 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
-  <script>
-  window.addEventListener('click', function() {
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission()
-        .then(permissionState => {
-          if (permissionState === 'granted') {
-            console.log("iOS Sensor Access Granted");
-          }
-        })
-        .catch(console.error);
+<script>
+  // This function can be called from Flutter
+  window.askIOSPermission = function() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      return DeviceOrientationEvent.requestPermission();
+    } else {
+      return Promise.resolve('granted'); // Non-iOS devices
     }
-  }, { once: true }); // Only runs on the first click
+  };
 </script>
 </body>
 </html>
