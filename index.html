@@ -3,102 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Avionics Raw Data</title>
+    <title>Global Flight Navigator</title>
     <style>
-        body { background: #000; color: #0f0; font-family: monospace; padding: 10px; margin: 0; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .box { border: 1px solid #040; padding: 8px; }
-        .label { color: #0a0; font-size: 0.8rem; display: block; }
-        .val { font-size: 1.2rem; font-weight: bold; }
-        .header { background: #020; padding: 5px; margin-top: 10px; color: #fff; font-size: 0.7rem; }
-        button { background: #0f0; color: #000; width: 100%; padding: 15px; border: none; font-weight: bold; margin-bottom: 10px; }
+        :root { --p-blue: #38bdf8; --p-bg: #0f172a; --p-card: #1e293b; }
+        body { background: var(--p-bg); color: white; font-family: -apple-system, sans-serif; padding: 15px; margin: 0; }
+        .panel { background: var(--p-card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #334155; }
+        .label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        input, select { background: #0f172a; color: white; border: 1px solid #475569; padding: 10px; width: 100%; border-radius: 6px; box-sizing: border-box; margin: 5px 0 10px 0; }
+        button { background: var(--p-blue); color: #0f172a; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        #tracker { display: none; text-align: center; }
+        .big-val { font-size: 2.5rem; font-weight: 800; color: var(--p-blue); display: block; }
     </style>
 </head>
 <body>
 
-    <button id="startBtn">INITIALIZE AVIONICS</button>
+    <div id="setup-screen">
+        <h2>Flight Setup</h2>
+        
+        <div class="panel">
+            <span class="label">Option 1: Quick Select (Offline Ready)</span>
+            <select id="quickSelect" onchange="applyQuickSelect()">
+                <option value="">-- Choose Hub --</option>
+                <option value="1.3501,103.9940,SIN">Singapore Changi (SIN)</option>
+                <option value="22.3089,113.9145,HKG">Hong Kong (HKG)</option>
+                <option value="25.2532,55.3657,DXB">Dubai (DXB)</option>
+                <option value="51.4700,-0.4543,LHR">London Heathrow (LHR)</option>
+                <option value="40.6413,-73.7781,JFK">New York JFK (JFK)</option>
+                <option value="35.7767,140.3864,NRT">Tokyo Narita (NRT)</option>
+            </select>
+        </div>
 
-    <div class="header">ATTITUDE (FUSED BY IOS)</div>
-    <div class="grid">
-        <div class="box"><span class="label">PITCH (B)</span><span id="pitch" class="val">0.0</span></div>
-        <div class="box"><span class="label">BANK (G)</span><span id="bank" class="val">0.0</span></div>
-        <div class="box"><span class="label">HDG (MAG)</span><span id="hdg" class="val">0.0</span></div>
+        <div class="panel">
+            <span class="label">Option 2: Global Search (Needs Internet)</span>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="searchInput" placeholder="Search Airport Code (e.g. LAX)">
+                <button onclick="searchAirport()" style="width:80px; margin-top:5px; padding:10px;">Find</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <span class="label">Option 3: Manual Coordinates</span>
+            <input type="text" id="destName" placeholder="Airport Name">
+            <div class="grid">
+                <input type="number" id="destLat" step="any" placeholder="Latitude">
+                <input type="number" id="destLon" step="any" placeholder="Longitude">
+            </div>
+            <button id="activateBtn" style="background:#22c55e">START TRACKING</button>
+        </div>
     </div>
 
-    <div class="header">ACCELEROMETER (G-FORCES)</div>
-    <div class="grid">
-        <div class="box"><span class="label">X (LAT)</span><span id="accX" class="val">0.0</span></div>
-        <div class="box"><span class="label">Y (LONG)</span><span id="accY" class="val">0.0</span></div>
-        <div class="box"><span class="label">Z (VERT)</span><span id="accZ" class="val">0.0</span></div>
-    </div>
-
-    <div class="header">GYROSCOPE (ROTATION RATE)</div>
-    <div class="grid">
-        <div class="box"><span class="label">ROLL RATE</span><span id="gyroG" class="val">0.0</span></div>
-        <div class="box"><span class="label">PITCH RATE</span><span id="gyroB" class="val">0.0</span></div>
-        <div class="box"><span class="label">YAW RATE</span><span id="gyroA" class="val">0.0</span></div>
-    </div>
-
-    <div class="header">GPS & TELEMETRY</div>
-    <div class="grid">
-        <div class="box"><span class="label">GND SPEED</span><span id="spd" class="val">0.0</span></div>
-        <div class="box"><span class="label">ALT (GPS)</span><span id="alt" class="val">0.0</span></div>
-        <div class="box"><span class="label">LAT</span><span id="lat" class="val">0.0</span></div>
-        <div class="box"><span class="label">LON</span><span id="lon" class="val">0.0</span></div>
+    <div id="tracker">
+        <div class="panel">
+            <span class="label">Distance to <span id="targetDisplay">Destination</span></span>
+            <span id="distVal" class="big-val">---</span>
+            <span class="label">Nautical Miles</span>
+        </div>
+        <div class="grid">
+            <div class="panel"><span class="label">GND Speed</span><span id="spdVal" style="font-size:1.5rem; font-weight:bold;">0</span><span class="label"> kts</span></div>
+            <div class="panel"><span class="label">Heading</span><span id="hdgVal" style="font-size:1.5rem; font-weight:bold;">0°</span><span class="label"> Magnetic</span></div>
+        </div>
+        <div class="panel">
+            <span class="label">Altitude</span>
+            <span id="altVal" style="font-size:1.5rem; font-weight:bold;">0</span><span class="label"> feet MSL</span>
+        </div>
+        <button onclick="location.reload()" style="background:#475569; color:white">Change Flight</button>
     </div>
 
     <script>
-        const startBtn = document.getElementById('startBtn');
-
-        startBtn.addEventListener('click', async () => {
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                const orient = await DeviceOrientationEvent.requestPermission();
-                const motion = await DeviceMotionEvent.requestPermission();
-                if (orient === 'granted' && motion === 'granted') {
-                    startInstruments();
-                    startGPS();
-                }
-            } else {
-                startInstruments();
-                startGPS();
-            }
-        });
-
-        function startInstruments() {
-            startBtn.style.display = 'none';
-
-            // 1. DEVICE ORIENTATION (Attitude)
-            window.addEventListener('deviceorientation', (e) => {
-                document.getElementById('pitch').innerText = (e.beta || 0).toFixed(1);
-                document.getElementById('bank').innerText = (e.gamma || 0).toFixed(1);
-                document.getElementById('hdg').innerText = (e.webkitCompassHeading || 0).toFixed(0);
-            });
-
-            // 2. DEVICE MOTION (G-Forces and Gyro)
-            window.addEventListener('devicemotion', (e) => {
-                // Acceleration includes Gravity (9.8 m/s^2 at rest)
-                const acc = e.accelerationIncludingGravity;
-                document.getElementById('accX').innerText = (acc.x || 0).toFixed(2);
-                document.getElementById('accY').innerText = (acc.y || 0).toFixed(2);
-                document.getElementById('accZ').innerText = (acc.z || 0).toFixed(2);
-
-                // Rotation Rate (deg/s)
-                const rot = e.rotationRate;
-                document.getElementById('gyroG').innerText = (rot.gamma || 0).toFixed(1);
-                document.getElementById('gyroB').innerText = (rot.beta || 0).toFixed(1);
-                document.getElementById('gyroA').innerText = (rot.alpha || 0).toFixed(1);
-            });
+        // REDUNDANCY 1: Apply from Select
+        function applyQuickSelect() {
+            const val = document.getElementById('quickSelect').value;
+            if (!val) return;
+            const [lat, lon, name] = val.split(',');
+            document.getElementById('destLat').value = lat;
+            document.getElementById('destLon').value = lon;
+            document.getElementById('destName').value = name;
         }
 
-        function startGPS() {
+        // REDUNDANCY 2: Search API
+        async function searchAirport() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+            try {
+                const res = await fetch(`https://autocomplete.travelpayouts.com/places2?term=${query}&locale=en&types[]=airport`);
+                const data = await res.json();
+                if (data.length > 0) {
+                    document.getElementById('destLat').value = data[0].coordinates.lat;
+                    document.getElementById('destLon').value = data[0].coordinates.lon;
+                    document.getElementById('destName').value = data[0].name;
+                } else { alert("Not found."); }
+            } catch (e) { alert("Search requires internet connection."); }
+        }
+
+        // NAVIGATION LOGIC
+        document.getElementById('activateBtn').addEventListener('click', async () => {
+            const lat = parseFloat(document.getElementById('destLat').value);
+            const lon = parseFloat(document.getElementById('destLon').value);
+            if (isNaN(lat) || isNaN(lon)) { alert("Need coordinates!"); return; }
+
+            // Request Permissions
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                await DeviceOrientationEvent.requestPermission();
+            }
+
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('tracker').style.display = 'block';
+            document.getElementById('targetDisplay').innerText = document.getElementById('destName').value || "Dest";
+
+            startNavigation(lat, lon);
+        });
+
+        function startNavigation(dLat, dLon) {
+            // Compass
+            window.addEventListener('deviceorientation', (e) => {
+                document.getElementById('hdgVal').innerText = Math.round(e.webkitCompassHeading || e.alpha || 0) + "°";
+            });
+
+            // GPS
             navigator.geolocation.watchPosition((pos) => {
-                // speed is in m/s, convert to knots
-                const knots = (pos.coords.speed || 0) * 1.94384;
-                document.getElementById('spd').innerText = knots.toFixed(1) + " kt";
-                document.getElementById('alt').innerText = (pos.coords.altitude || 0).toFixed(0) + " m";
-                document.getElementById('lat').innerText = pos.coords.latitude.toFixed(4);
-                document.getElementById('lon').innerText = pos.coords.longitude.toFixed(4);
-            }, (err) => console.log(err), { enableHighAccuracy: true });
+                const p = pos.coords;
+                const dist = calculateHaversine(p.latitude, p.longitude, dLat, dLon);
+                
+                document.getElementById('distVal').innerText = dist.toFixed(1);
+                document.getElementById('spdVal').innerText = Math.round((p.speed || 0) * 1.94384);
+                document.getElementById('altVal').innerText = Math.round((p.altitude || 0) * 3.28084).toLocaleString();
+            }, null, { enableHighAccuracy: true });
+        }
+
+        function calculateHaversine(lat1, lon1, lat2, lon2) {
+            const R = 3440.06; // Nautical Miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
     </script>
 </body>
