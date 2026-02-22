@@ -43,13 +43,20 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
 <script>
-  // This function can be called from Flutter
   window.askIOSPermission = function() {
     if (typeof DeviceOrientationEvent !== 'undefined' && 
         typeof DeviceOrientationEvent.requestPermission === 'function') {
-      return DeviceOrientationEvent.requestPermission();
+      return DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            // FORCE WAKE UP: Create a temporary listener to kickstart the hardware
+            window.addEventListener('devicemotion', () => {}, { once: true });
+            return 'granted';
+          }
+          return permissionState;
+        });
     } else {
-      return Promise.resolve('granted'); // Non-iOS devices
+      return Promise.resolve('granted'); 
     }
   };
 </script>
