@@ -14,5 +14,5 @@ node_modules/
 
 # Project specific
 .metadata
-.tmp
-.bat
+*.tmp
+*.bat
