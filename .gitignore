@@ -1,4 +1,5 @@
 # Miscellaneous
+*.bat
 *.class
 *.log
 *.pyc
