@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Universal Navigator</title>
+    <style>
+        :root { --neon-green: #00ff41; --dark-bg: #0a0a0a; --panel-bg: #1a1a1a; }
+        body { background-color: var(--dark-bg); color: var(--neon-green); font-family: 'Courier New', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        #instrument-cluster { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 500px; margin-bottom: 20px; }
+        .stat-box { background: var(--panel-bg); border: 1px solid var(--neon-green); padding: 10px; text-align: center; border-radius: 5px; }
+        .label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.8; }
+        .value { font-size: 1.4rem; font-weight: bold; display: block; }
+
+        /* The Map Container */
+        #map-area { 
+            position: relative; width: 100%; max-width: 500px; height: 300px; 
+            background: #000; border: 2px solid var(--neon-green); overflow: hidden; border-radius: 8px;
+        }
+        #world-map { position: absolute; width: 100%; height: 100%; fill: none; stroke: #004400; stroke-width: 1; }
+        #grid-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.3; }
+        #plane { 
+            position: absolute; font-size: 24px; transition: all 0.5s ease; 
+            transform: translate(-50%, -50%); z-index: 10; color: white; text-shadow: 0 0 5px #00ff41;
+        }
+        
+        button { 
+            background: var(--neon-green); color: black; border: none; padding: 15px 30px; 
+            font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 20px; width: 100%; max-width: 500px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="instrument-cluster">
+        <div class="stat-box"><span class="label">Lat</span><span id="lat-val" class="value">0.00</span></div>
+        <div class="stat-box"><span class="label">Lon</span><span id="lon-val" class="value">0.00</span></div>
+        <div class="stat-box"><span class="label">Heading</span><span id="hdg-val" class="value">000°</span></div>
+        <div class="stat-box"><span class="label">Speed</span><span id="spd-val" class="value">0 kts</span></div>
+    </div>
+
+    <div id="map-area">
+        <svg id="world-map" viewBox="0 0 360 180">
+            <path d="M30,120 L40,110 L60,115 L80,100 L100,110 L120,90 L150,95 L180,80 L210,85 L250,70 L300,80 L330,100 L350,130 L300,150 L250,160 L200,155 L150,165 L100,150 L50,145 Z M200,40 L220,30 L250,35 L270,20 L240,10 L200,15 Z" />
+            </svg>
+        <canvas id="grid-canvas"></canvas>
+        <div id="plane">✈️</div>
+    </div>
+
+    <button onclick="startNavigation()">INITIALIZE OFFLINE SENSORS</button>
+
+    <script>
+        const plane = document.getElementById('plane');
+        const grid = document.getElementById('grid-canvas');
+        const ctx = grid.getContext('2d');
+
+        function initGrid() {
+            grid.width = grid.offsetWidth;
+            grid.height = grid.offsetHeight;
+            ctx.strokeStyle = "#00ff41";
+            ctx.lineWidth = 0.5;
+            // Draw Vertical Lines
+            for(let i=0; i<grid.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,grid.height); ctx.stroke(); }
+            // Draw Horizontal Lines
+            for(let i=0; i<grid.height; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(grid.width,i); ctx.stroke(); }
+        }
+
+        function updatePosition(lat, lon, heading) {
+            document.getElementById('lat-val').innerText = lat.toFixed(2);
+            document.getElementById('lon-val').innerText = lon.toFixed(2);
+            document.getElementById('hdg-val').innerText = Math.round(heading) + "°";
+
+            // Map Lat/Lon to % of screen
+            // Longitude: -180 to 180 -> 0 to 100%
+            // Latitude: 90 to -90 -> 0 to 100%
+            const xPercent = ((lon + 180) / 360) * 100;
+            const yPercent = ((90 - lat) / 180) * 100;
+
+            plane.style.left = xPercent + "%";
+            plane.style.top = yPercent + "%";
+            plane.style.transform = `translate(-50%, -50%) rotate(${heading - 45}deg)`; 
+            // -45 because the emoji ✈️ points northeast by default
+        }
+
+        function startNavigation() {
+            // 1. Get GPS
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(pos => {
+                    const { latitude, longitude, heading, speed } = pos.coords;
+                    updatePosition(latitude, longitude, heading || 0);
+                    document.getElementById('spd-val').innerText = Math.round(speed * 1.94384 || 0) + " kts";
+                }, err => console.log(err), { enableHighAccuracy: true });
+            }
+
+            // 2. Get Compass (Device Orientation)
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientationabsolute', (event) => {
+                    if (event.alpha !== null) {
+                        const compass = 360 - event.alpha; 
+                        updatePosition(parseFloat(document.getElementById('lat-val').innerText), 
+                                       parseFloat(document.getElementById('lon-val').innerText), 
+                                       compass);
+                    }
+                }, true);
+            }
+        }
+
+        window.onload = initGrid;
+    </script>
+</body>
+</html>
