@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Universal Navigator</title>
+    <style>
+        :root { --accent: #38bdf8; --bg: #0f172a; --card: #1e293b; --text-dim: #94a3b8; }
+        body { background: var(--bg); color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 10px; margin: 0; }
+        .panel { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #334155; }
+        .label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+        input { background: #0f172a; color: white; border: 1px solid #475569; padding: 12px; width: 100%; border-radius: 8px; box-sizing: border-box; font-size: 16px; margin-top: 5px; }
+        
+        /* Search results */
+        .result-item { padding: 12px; border-bottom: 1px solid #334155; cursor: pointer; }
+        .result-item:last-child { border: none; }
+
+        /* Grid System */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .big-val { font-size: 2.4rem; font-weight: 800; color: var(--accent); line-height: 1; margin: 5px 0; }
+        .med-val { font-size: 1.6rem; font-weight: bold; color: white; }
+        .unit { font-size: 0.9rem; color: var(--text-dim); margin-left: 4px; font-weight: normal; }
+        
+        #tracker { display: none; }
+        button { background: var(--accent); color: #0f172a; border: none; padding: 16px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: opacity 0.2s; }
+        button:active { opacity: 0.8; }
+        .secondary-btn { background: #475569; color: white; margin-top: 10px; }
+        hr { border: 0; border-top: 1px solid #334155; margin: 12px 0; }
+    </style>
+</head>
+<body>
+
+    <div style="padding: 10px 5px;">
+        <a href="index.html" style="color: var(--accent); text-decoration: none; font-size: 0.8rem; font-weight: bold;">&larr; BACK TO DASHBOARD</a>
+    </div>
+
+    <div id="setup-screen">
+        <h2 style="margin-left:5px;">Navigator Setup</h2>
+        
+        <div class="panel">
+            <span class="label">Global Search (Powered by OSM)</span>
+            <input type="text" id="searchInput" placeholder="e.g. Paris, Eiffel Tower, JFK Airport..." oninput="debounceSearch()">
+            <div id="results"></div>
+        </div>
+
+        <div class="panel">
+            <span class="label">Google Maps Coordinates</span>
+            <input type="text" id="manualInput" placeholder="Paste: 10.8185, 106.6518">
+            <button onclick="applyManual()" class="secondary-btn" style="padding:10px; font-size:0.8rem;">Apply Pin</button>
+        </div>
+
+        <div id="selectedArea" class="panel" style="display:none; border-color: var(--accent);">
+            <span class="label">Active Destination</span>
+            <div id="selectedName" style="color:var(--accent); font-weight:bold; margin: 10px 0;">None</div>
+            <button id="activateBtn">INITIALIZE SENSORS</button>
+        </div>
+    </div>
+
+    <div id="tracker">
+        <div class="panel" style="text-align: center;">
+            <span class="label">Distance Remaining</span>
+            <div id="distNM" class="big-val">---<span class="unit">nm</span></div>
+            <div id="distKM" style="color:var(--text-dim); font-size: 1.1rem;">--- km</div>
+            <hr>
+            <span class="label">Est. Time Remaining (Straight Line)</span>
+            <div id="etaVal" class="med-val" style="margin-top:5px;">--h --m</div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <span class="label">Bank Angle</span><br>
+                <span id="bankVal" class="med-val">0°</span>
+                <div id="bankDir" class="unit" style="margin-top:4px;">Level</div>
+            </div>
+            <div class="panel">
+                <span class="label">Pitch (Inclination)</span><br>
+                <span id="pitchVal" class="med-val">0°</span>
+                <div id="pitchDir" class="unit" style="margin-top:4px;">Level</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <span class="label">Ground Speed</span><br>
+                <span id="spdKts" class="med-val">0</span><span class="unit">kts</span>
+                <div id="spdKph" class="unit" style="margin-top:4px;">0 km/h</div>
+            </div>
+            <div class="panel">
+                <span class="label">Compass Heading</span><br>
+                <span id="hdgVal" class="med-val">0°</span>
+                <div class="unit" style="margin-top:4px;">Magnetic</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <span class="label">GPS Altitude (MSL)</span><br>
+            <span id="altVal" class="med-val">0</span><span class="unit">ft</span>
+        </div>
+
+        <button onclick="location.reload()" class="secondary-btn">RESET TRIP</button>
+    </div>
+
+    <script>
+        // --- DATABASE ---
+        const airports = [
+            {code: "SGN", name: "Tan Son Nhat", city: "Ho Chi Minh", lat: 10.8185, lon: 106.6518},
+            {code: "SIN", name: "Changi", city: "Singapore", lat: 1.3501, lon: 103.9940},
+            {code: "HAN", name: "Noi Bai", city: "Hanoi", lat: 21.2212, lon: 105.8072},
+            {code: "DAD", name: "Da Nang Intl", city: "Da Nang", lat: 16.0439, lon: 108.1995},
+            {code: "SYD", name: "Kingsford Smith", city: "Sydney", lat: -33.9399, lon: 151.1753},
+            {code: "LHR", name: "Heathrow", city: "London", lat: 51.4700, lon: -0.4543}
+        ];
+
+        let targetLat = null;
+        let targetLon = null;
+
+        // --- OSM SEARCH LOGIC ---
+        let searchTimeout;
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(doSearch, 500);
+        }
+
+        async function doSearch() {
+            const term = document.getElementById('searchInput').value;
+            const resDiv = document.getElementById('results');
+            
+            if (term.length < 3) {
+                resDiv.innerHTML = '';
+                return;
+            }
+
+            try {
+                // Using Nominatim API (Free OpenStreetMap Geocoding)
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(term)}&limit=5`);
+                const data = await response.json();
+
+                resDiv.innerHTML = '';
+                data.forEach(place => {
+                    const d = document.createElement('div');
+                    d.className = 'result-item';
+                    d.style.fontSize = '0.9rem';
+                    d.innerHTML = place.display_name;
+                    d.onclick = () => setDestination(parseFloat(place.lat), parseFloat(place.lon), place.display_name.split(',')[0]);
+                    resDiv.appendChild(d);
+                });
+            } catch (err) {
+                console.error("Search failed:", err);
+            }
+        }
+
+        function applyManual() {
+            const raw = document.getElementById('manualInput').value;
+            const parts = raw.split(/[\s,]+/);
+            if (parts.length >= 2) {
+                const lat = parseFloat(parts[0]);
+                const lon = parseFloat(parts[1]);
+                setDestination(lat, lon, `Manual Pin (${lat.toFixed(3)}, ${lon.toFixed(3)})`);
+            }
+        }
+
+        function setDestination(lat, lon, name) {
+            targetLat = lat;
+            targetLon = lon;
+            document.getElementById('selectedName').innerText = name;
+            document.getElementById('selectedArea').style.display = 'block';
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('searchInput').value = '';
+        }
+
+        // --- CORE TRACKING LOGIC ---
+        document.getElementById('activateBtn').addEventListener('click', async () => {
+            // Permissions for iOS
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                await DeviceOrientationEvent.requestPermission();
+            }
+            
+            // Stay Awake
+            if ('wakeLock' in navigator) {
+                try { await navigator.wakeLock.request('screen'); } catch (e) {}
+            }
+
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('tracker').style.display = 'block';
+            startEngine();
+        });
+
+        function startEngine() {
+            // SENSORS: Orientation
+            window.addEventListener('deviceorientation', (e) => {
+                const pitch = e.beta || 0;
+                const bank = e.gamma || 0;
+                const heading = e.webkitCompassHeading || e.alpha || 0;
+
+                document.getElementById('pitchVal').innerText = Math.abs(pitch).toFixed(0) + "°";
+                document.getElementById('pitchDir').innerText = pitch > 5 ? "Nose Up" : (pitch < -5 ? "Nose Down" : "Level");
+                
+                document.getElementById('bankVal').innerText = Math.abs(bank).toFixed(0) + "°";
+                document.getElementById('bankDir').innerText = bank > 5 ? "Right Bank" : (bank < -5 ? "Left Bank" : "Level");
+                
+                document.getElementById('hdgVal').innerText = Math.round(heading) + "°";
+            });
+
+            // SENSORS: GPS
+            navigator.geolocation.watchPosition((pos) => {
+                const p = pos.coords;
+                
+                // Units
+                const speedMps = p.speed || 0;
+                const kts = speedMps * 1.94384;
+                const kph = speedMps * 3.6;
+                const altFt = (p.altitude || 0) * 3.28084;
+
+                // Distance Math
+                const dNM = haversine(p.latitude, p.longitude, targetLat, targetLon);
+                const dKM = dNM * 1.852;
+
+                // ETA Math (Based on current speed)
+                let etaStr = "--h --m";
+                if (kts > 5) { // Minimum speed of 5 kts to calculate
+                    const hours = dNM / kts;
+                    const h = Math.floor(hours);
+                    const m = Math.floor((hours - h) * 60);
+                    etaStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+                }
+
+                // Update UI
+                document.getElementById('distNM').innerHTML = `${dNM.toFixed(1)}<span class="unit">nm</span>`;
+                document.getElementById('distKM').innerText = `${dKM.toFixed(1)} km`;
+                document.getElementById('etaVal').innerText = etaStr;
+                document.getElementById('spdKts').innerText = Math.round(kts);
+                document.getElementById('spdKph').innerText = Math.round(kph) + " km/h";
+                document.getElementById('altVal').innerText = Math.round(altFt).toLocaleString();
+
+            }, (err) => alert("GPS Error: " + err.message), { enableHighAccuracy: true });
+        }
+
+        function haversine(lat1, lon1, lat2, lon2) {
+            const R = 3440.06; // Radius in Nautical Miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+    </script>
+</body>
+</html>
