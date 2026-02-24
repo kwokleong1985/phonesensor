@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Emoji Pilot: Infinite Odyssey</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #020205; font-family: 'Courier New', Courier, monospace; }
+        canvas { display: block; }
+        #ui {
+            position: absolute; top: 20px; left: 20px; color: #00ff00;
+            background: rgba(0,20,0,0.8); padding: 15px; border-radius: 5px;
+            pointer-events: none; border: 1px solid #00ff00; line-height: 1.5;
+        }
+        .stat { font-size: 18px; text-shadow: 0 0 5px #00ff00; }
+        #msg { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); 
+               color: #ff3333; font-size: 50px; text-align: center; display: none; text-shadow: 0 0 20px red; }
+        #restart { font-size: 20px; color: white; cursor: pointer; text-decoration: underline; margin-top: 20px; pointer-events: auto; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div style="margin-bottom: 10px;">
+        <a href="index.html" style="color: #00ff00; text-decoration: none; font-weight: bold; pointer-events: auto;">&larr; EXIT TO MENU</a>
+    </div>
+    <div class="stat">LEVEL: <span id="lvl">1</span></div>
+    <div class="stat">SCORE: <span id="score">0</span></div>
+    <div class="stat">HP: <span id="hp">100</span>%</div>
+    <div class="stat">FUEL: <span id="fuel">100</span>%</div>
+    <div class="stat">GOAL: <span id="dist">0</span>m</div>
+</div>
+
+<div id="msg">
+    <div id="deathText"></div>
+    <div id="restart" onclick="location.reload()">REBOOT SYSTEM</div>
+</div>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game Constants & State
+let level = 1;
+let totalScore = 0;
+let levelStartDist = 0;
+let gameOver = false;
+
+let ship = {
+    x: 0, y: 0, vx: 0, vy: 0,
+    angle: -Math.PI / 2,
+    hp: 100, fuel: 100,
+    thrusting: false, reversing: false
+};
+
+let destination = { x: 0, y: 0 };
+let obstacles = [];
+
+function initLevel() {
+    // Set destination further each level
+    const dist = 1000 + (level * 800);
+    const angle = Math.random() * Math.PI * 2;
+    destination.x = Math.cos(angle) * dist;
+    destination.y = Math.sin(angle) * dist;
+    levelStartDist = dist;
+
+    // Generate random obstacles in the general direction of the goal
+    obstacles = [];
+    for (let i = 0; i < 40 + (level * 10); i++) {
+        obstacles.push({
+            x: (Math.random() - 0.5) * (dist * 2.5),
+            y: (Math.random() - 0.5) * (dist * 2.5),
+            type: ['🌑', '🪐', '☄️', '🛰️'][Math.floor(Math.random() * 4)],
+            size: 35
+        });
+    }
+    // Heal slightly on new level
+    ship.hp = Math.min(100, ship.hp + 20);
+    ship.fuel = Math.min(100, ship.fuel + 30);
+}
+
+const keys = {};
+window.onkeydown = (e) => keys[e.code] = true;
+window.onkeyup = (e) => keys[e.code] = false;
+
+function update() {
+    if (gameOver) return;
+
+    if (keys['ArrowLeft']) ship.angle -= 0.08;
+    if (keys['ArrowRight']) ship.angle += 0.08;
+
+    ship.thrusting = false;
+    ship.reversing = false;
+
+    if (keys['ArrowUp'] && ship.fuel > 0) {
+        ship.vx += Math.cos(ship.angle) * 0.25;
+        ship.vy += Math.sin(ship.angle) * 0.25;
+        ship.fuel -= 0.12;
+        ship.thrusting = true;
+    }
+    if (keys['ArrowDown'] && ship.fuel > 0) {
+        ship.vx -= Math.cos(ship.angle) * 0.12;
+        ship.vy -= Math.sin(ship.angle) * 0.12;
+        ship.fuel -= 0.06;
+        ship.reversing = true;
+    }
+
+    ship.x += ship.vx;
+    ship.y += ship.vy;
+    ship.vx *= 0.985; // Drag
+    ship.vy *= 0.985;
+
+    // Collision
+    obstacles.forEach(obs => {
+        let dx = ship.x - obs.x;
+        let dy = ship.y - obs.y;
+        let d = Math.sqrt(dx*dx + dy*dy);
+        if (d < obs.size) {
+            ship.vx *= -0.7; ship.vy *= -0.7;
+            ship.hp -= 15;
+            ship.x += (dx/d) * 10; ship.y += (dy/d) * 10;
+        }
+    });
+
+    // Score Calculation
+    let dx = destination.x - ship.x;
+    let dy = destination.y - ship.y;
+    let currentDist = Math.sqrt(dx*dx + dy*dy);
+    let progressed = Math.max(0, levelStartDist - currentDist);
+    
+    document.getElementById('score').innerText = Math.floor(totalScore + progressed);
+    document.getElementById('dist').innerText = Math.floor(currentDist);
+    document.getElementById('hp').innerText = Math.max(0, Math.ceil(ship.hp));
+    document.getElementById('fuel').innerText = Math.max(0, Math.ceil(ship.fuel));
+    document.getElementById('lvl').innerText = level;
+
+    if (currentDist < 60) {
+        totalScore += levelStartDist;
+        level++;
+        initLevel();
+    }
+
+    if (ship.hp <= 0 || (ship.fuel <= 0 && Math.abs(ship.vx) < 0.05)) {
+        gameOver = true;
+        document.getElementById('msg').style.display = 'block';
+        document.getElementById('deathText').innerText = ship.hp <= 0 ? "KINETIC IMPACT: HULL BREACHED 💥" : "SYSTEM FAILURE: FUEL DEPLETED ⛽";
+    }
+}
+
+function draw() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    ctx.fillStyle = '#020205';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(canvas.width/2 - ship.x, canvas.height/2 - ship.y);
+
+    // Goal
+    ctx.font = '60px serif';
+    ctx.fillText('🚩', destination.x - 30, destination.y + 30);
+
+    // Obstacles
+    ctx.font = '40px serif';
+    obstacles.forEach(obs => ctx.fillText(obs.type, obs.x - 20, obs.y + 20));
+
+    // Ship Drawing
+    ctx.save();
+    ctx.translate(ship.x, ship.y);
+    ctx.rotate(ship.angle + Math.PI/2);
+    
+    // The Thruster (🔥) - Rotated and positioned behind rocket
+    if (ship.thrusting) {
+        ctx.font = '30px serif';
+        ctx.fillText('🔥', -15, 45); // Offset to the back
+    }
+    if (ship.reversing) {
+        ctx.font = '20px serif';
+        ctx.fillText('💨', -10, -25); // Small puff at front for reverse
+    }
+
+    ctx.font = '45px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🚀', 0, 10);
+    ctx.restore();
+
+    ctx.restore();
+    update();
+    requestAnimationFrame(draw);
+}
+
+initLevel();
+draw();
+</script>
+</body>
+</html>
