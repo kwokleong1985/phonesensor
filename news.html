@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Personal News Reader</title>
+
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #555;
+      --header: #111827;
+      --btn: #2563eb;
+      --btn-secondary: #6b7280;
+      --btn-danger: #dc2626;
+      --border: #e5e7eb;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --card: #020617;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --header: #020617;
+      --btn: #3b82f6;
+      --btn-secondary: #64748b;
+      --btn-danger: #ef4444;
+      --border: #1e293b;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: var(--header);
+      color: var(--text);
+      padding: 16px;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      padding: 12px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      border: 1px solid var(--border);
+    }
+
+    input, button, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 16px;
+      background: var(--card);
+      color: var(--text);
+    }
+
+    button {
+      background: var(--btn);
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: var(--btn-secondary);
+    }
+
+    button.danger {
+      background: var(--btn-danger);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .row button {
+      flex: 1;
+    }
+
+    .article {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .article:last-child {
+      border-bottom: none;
+    }
+
+    .article h3 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+    }
+
+    .article a {
+      text-decoration: none;
+      color: var(--btn);
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .status {
+      text-align: center;
+      margin: 10px 0;
+      color: var(--muted);
+    }
+
+    #loadMoreBtn {
+      margin: 16px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    📰 Personal News Reader
+  </header>
+
+  <div class="container">
+
+    <!-- API KEY -->
+    <div class="card">
+      <h3>🔑 NewsAPI Key</h3>
+
+      <input
+        id="apiKeyInput"
+        type="text"
+        placeholder="Paste your NewsAPI key here"
+      />
+
+      <div class="row">
+        <button onclick="saveKey()">Save</button>
+        <button class="danger" onclick="clearKey()">Clear</button>
+      </div>
+    </div>
+
+    <!-- THEME -->
+    <div class="card">
+      <h3>🌗 Theme</h3>
+
+      <select id="themeSelect" onchange="setTheme(this.value)">
+        <option value="auto">Auto (System)</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+
+    <!-- SEARCH -->
+    <div class="card">
+      <h3>🔍 Search</h3>
+
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="Search keyword (default: S&P)"
+      />
+
+      <div class="row">
+        <button onclick="startSearch()">Search</button>
+        <button class="secondary" onclick="resetDefault()">
+          Reset to S&P
+        </button>
+      </div>
+    </div>
+
+    <!-- PRESETS -->
+    <div class="card">
+      <h3>📌 Presets</h3>
+
+      <div class="row">
+        <button onclick="preset('S&P')">S&P</button>
+        <button onclick="preset('AI technology')">AI</button>
+      </div>
+
+      <div class="row">
+        <button onclick="preset('Singapore business')">🇸🇬 Singapore</button>
+        <button onclick="preset('global economy')">Economy</button>
+      </div>
+    </div>
+
+    <!-- STATUS -->
+    <div id="status" class="status"></div>
+
+    <!-- RESULTS -->
+    <div id="results" class="card"></div>
+
+    <!-- LOAD MORE -->
+    <button
+      id="loadMoreBtn"
+      onclick="loadMore()"
+      style="display:none"
+    >
+      Load More
+    </button>
+
+  </div>
+
+
+  <script>
+
+    /***********************
+     * CONFIG
+     ***********************/
+
+    const STORAGE_KEY = "newsapi_key";
+    const THEME_KEY = "theme_pref";
+    const PAGE_SIZE = 20;
+
+    let currentQuery = "S&P";
+    let currentPage = 1;
+    let totalResults = 0;
+    let loading = false;
+
+
+    /***********************
+     * INIT
+     ***********************/
+
+    window.onload = () => {
+
+      initTheme();
+
+      loadSavedKey();
+
+      if (getApiKey()) {
+        defaultSearch();
+      }
+    };
+
+
+    /***********************
+     * THEME
+     ***********************/
+
+    function initTheme() {
+
+      const saved =
+        localStorage.getItem(THEME_KEY) || "auto";
+
+      themeSelect.value = saved;
+
+      applyTheme(saved);
+
+      if (saved === "auto") {
+
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .addEventListener("change", () => {
+            applyTheme("auto");
+          });
+      }
+    }
+
+
+    function setTheme(mode) {
+
+      localStorage.setItem(THEME_KEY, mode);
+
+      applyTheme(mode);
+    }
+
+
+    function applyTheme(mode) {
+
+      if (mode === "dark") {
+
+        document.documentElement.dataset.theme = "dark";
+
+      }
+      else if (mode === "light") {
+
+        delete document.documentElement.dataset.theme;
+
+      }
+      else {
+
+        if (
+          window.matchMedia("(prefers-color-scheme: dark)")
+            .matches
+        ) {
+          document.documentElement.dataset.theme = "dark";
+        }
+        else {
+          delete document.documentElement.dataset.theme;
+        }
+      }
+    }
+
+
+    /***********************
+     * API KEY
+     ***********************/
+
+    function saveKey() {
+
+      const key = apiKeyInput.value.trim();
+
+      if (!key) {
+        alert("Please enter an API key.");
+        return;
+      }
+
+      localStorage.setItem(STORAGE_KEY, key);
+
+      alert("API key saved!");
+
+      defaultSearch();
+    }
+
+
+    function clearKey() {
+
+      if (!confirm("Remove saved API key?")) return;
+
+      localStorage.removeItem(STORAGE_KEY);
+
+      apiKeyInput.value = "";
+
+      results.innerHTML = "";
+
+      status.textContent = "API key cleared.";
+
+      hideLoadMore();
+    }
+
+
+    function loadSavedKey() {
+
+      const key =
+        localStorage.getItem(STORAGE_KEY);
+
+      if (key) {
+        apiKeyInput.value = key;
+      }
+    }
+
+
+    function getApiKey() {
+
+      return localStorage.getItem(STORAGE_KEY);
+    }
+
+
+    /***********************
+     * SEARCH
+     ***********************/
+
+    function defaultSearch() {
+
+      currentQuery = "S&P";
+
+      searchInput.value = "S&P";
+
+      startSearch();
+    }
+
+
+    function resetDefault() {
+
+      defaultSearch();
+    }
+
+
+    function preset(q) {
+
+      searchInput.value = q;
+
+      currentQuery = q;
+
+      startSearch();
+    }
+
+
+    function startSearch() {
+
+      const key = getApiKey();
+
+      if (!key) {
+        alert("Please save your API key first.");
+        return;
+      }
+
+      const q = searchInput.value.trim();
+
+      currentQuery = q || "S&P";
+
+      currentPage = 1;
+
+      results.innerHTML = "";
+
+      hideLoadMore();
+
+      fetchNews();
+    }
+
+
+    function loadMore() {
+
+      if (loading) return;
+
+      currentPage++;
+
+      fetchNews();
+    }
+
+
+    /***********************
+     * FETCH
+     ***********************/
+
+    async function fetchNews() {
+
+      const key = getApiKey();
+
+      if (!key) return;
+
+      loading = true;
+
+      status.textContent = "Loading...";
+
+      const fromDate = new Date();
+
+      fromDate.setDate(fromDate.getDate() - 2);
+
+      const from =
+        fromDate.toISOString().split("T")[0];
+
+      const url =
+        "https://newsapi.org/v2/everything" +
+        "?q=" + encodeURIComponent(currentQuery) +
+        "&from=" + from +
+        "&sortBy=publishedAt" +
+        "&language=en" +
+        "&page=" + currentPage +
+        "&pageSize=" + PAGE_SIZE +
+        "&apiKey=" + key;
+
+      try {
+
+        const res = await fetch(url);
+
+        const data = await res.json();
+
+        if (data.status !== "ok") {
+          throw new Error(data.message || "API error");
+        }
+
+        totalResults = data.totalResults;
+
+        renderArticles(data.articles);
+
+        updateLoadMore();
+
+        status.textContent =
+          `Showing ${results.children.length} of ${totalResults}`;
+
+      }
+      catch (err) {
+
+        console.error(err);
+
+        status.textContent =
+          "Error: " + err.message;
+      }
+      finally {
+
+        loading = false;
+      }
+    }
+
+
+    /***********************
+     * RENDER
+     ***********************/
+
+    function renderArticles(articles) {
+
+      if (!articles.length && currentPage === 1) {
+
+        results.innerHTML =
+          "<p>No results found.</p>";
+
+        return;
+      }
+
+      for (const a of articles) {
+
+        const div =
+          document.createElement("div");
+
+        div.className = "article";
+
+        const date =
+          new Date(a.publishedAt)
+            .toLocaleString();
+
+        div.innerHTML = `
+          <h3>
+            <a href="${a.url}" target="_blank">
+              ${a.title || "Untitled"}
+            </a>
+          </h3>
+
+          <div class="meta">
+            ${a.source.name || "Unknown"} • ${date}
+          </div>
+
+          <div>
+            ${a.description || ""}
+          </div>
+        `;
+
+        results.appendChild(div);
+      }
+    }
+
+
+    /***********************
+     * PAGINATION
+     ***********************/
+
+    function updateLoadMore() {
+
+      const shown =
+        results.children.length;
+
+      if (shown < totalResults) {
+        showLoadMore();
+      }
+      else {
+        hideLoadMore();
+      }
+    }
+
+
+    function showLoadMore() {
+
+      loadMoreBtn.style.display = "block";
+    }
+
+
+    function hideLoadMore() {
+
+      loadMoreBtn.style.display = "none";
+    }
+
+  </script>
+
+</body>
+</html>
